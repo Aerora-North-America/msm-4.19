@@ -47,6 +47,32 @@ static struct cnss_utils_priv {
 	struct dentry *root_dentry;
 } *cnss_utils_priv;
 
+static char cnss_macAddr[ETH_ALEN*3];
+module_param_string(mac, cnss_macAddr, ETH_ALEN*3, 0);
+
+static void cnss_wlan_init_mac(void)
+{
+	int i, j;
+	short byte1, byte0;
+	u8 temp[ETH_ALEN];
+
+	if (!cnss_utils_priv) return;
+
+	if (strlen(cnss_macAddr) < ETH_ALEN*3-1) return;
+
+	for (i=0, j=0; i < ETH_ALEN; i++, j+=3) {
+		if ((byte1 = hex_to_bin(*(cnss_macAddr + j))) < 0)
+			return;
+
+		if ((byte0 = hex_to_bin(*(cnss_macAddr + j+1))) < 0)
+			return;
+
+		temp[i] = (char)(byte1*16 + byte0);
+	}
+
+	cnss_utils_set_wlan_mac_address(temp, ETH_ALEN);
+}
+
 int cnss_utils_set_wlan_unsafe_channel(struct device *dev,
 				       u16 *unsafe_ch_list, u16 ch_count)
 {
@@ -229,7 +255,7 @@ static int set_wlan_mac_address(const u8 *mac_list, const uint32_t len,
 	for (iter = 0; iter < no_of_mac_addr;
 	     ++iter, temp += ETH_ALEN, mac_list += ETH_ALEN) {
 		ether_addr_copy(temp, mac_list);
-		pr_debug("MAC_ADDR:%02x:%02x:%02x:%02x:%02x:%02x\n",
+		pr_alert("MAC_ADDR:%02x:%02x:%02x:%02x:%02x:%02x\n",
 			 temp[0], temp[1], temp[2],
 			 temp[3], temp[4], temp[5]);
 	}
@@ -456,7 +482,7 @@ static int __init cnss_utils_init(void)
 	spin_lock_init(&priv->dfs_nol_info_lock);
 	cnss_utils_debugfs_create(priv);
 	cnss_utils_priv = priv;
-
+	cnss_wlan_init_mac();
 	return 0;
 }
 
