@@ -10,6 +10,8 @@
 #include <linux/ktime.h>
 #include <linux/nvmem-consumer.h>
 #include <linux/of.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include <linux/of_platform.h>
 #include <linux/of_batterydata.h>
 #include <linux/platform_device.h>
@@ -876,6 +878,15 @@ static int fg_gen4_get_debug_batt_id(struct fg_dev *fg, int *batt_id)
 static bool is_debug_batt_id(struct fg_dev *fg)
 {
 	int debug_batt_id[2], rc;
+
+	/* High = powered by DC */
+	if (gpio_is_valid(fg->pwr_src_det_gpio)) {
+		fg_dbg(fg, FG_POWER_SUPPLY, "get gpio%d = %d\n",
+			fg->pwr_src_det_gpio,
+			gpio_get_value(fg->pwr_src_det_gpio));
+		if (gpio_get_value(fg->pwr_src_det_gpio) == 1)
+			return true;
+	}
 
 	if (fg->batt_id_ohms < 0)
 		return false;
@@ -6130,6 +6141,23 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 	chip->dt.batt_id_pullup_kohms = DEFAULT_BATT_ID_PULLUP_KOHMS;
 	of_property_read_u32(node, "qcom,batt-id-pullup-kohms",
 				&chip->dt.batt_id_pullup_kohms);
+	/* Power source detection gpio */
+	if (of_find_property(node, "qcom,pwr-src-det-gpio", NULL)) {
+		fg->pwr_src_det_gpio = of_get_named_gpio_flags(node,
+			"qcom,pwr-src-det-gpio", 0, NULL);
+		if (!gpio_is_valid(fg->pwr_src_det_gpio)) {
+			if (fg->pwr_src_det_gpio != -EPROBE_DEFER)
+				pr_err("failed to get pwr source det gpio=%d\n",
+					fg->pwr_src_det_gpio);
+		}
+		pr_info("%s() qcom,pwr-src-det-gpio = %d\n", __func__, fg->pwr_src_det_gpio);
+		rc = devm_gpio_request(fg->dev, fg->pwr_src_det_gpio,
+			"pwr_src_det");
+		if (rc) {
+			pr_err("failed to request pwr_src_det gpio %d rc=%d\n",
+				fg->pwr_src_det_gpio, rc);
+		}
+	}
 	return 0;
 }
 
@@ -6215,6 +6243,7 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	fg->charge_status = -EINVAL;
 	fg->online_status = -EINVAL;
 	fg->batt_id_ohms = -EINVAL;
+	fg->pwr_src_det_gpio = -EINVAL;
 	chip->ki_coeff_full_soc[0] = -EINVAL;
 	chip->ki_coeff_full_soc[1] = -EINVAL;
 	chip->esr_soh_cycle_count = -EINVAL;

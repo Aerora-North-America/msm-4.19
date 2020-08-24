@@ -474,6 +474,7 @@ struct fg_dev {
 	int			last_recharge_volt_mv;
 	int			delta_temp_irq_count;
 	enum esr_filter_status	esr_flt_sts;
+	int			pwr_src_det_gpio;	/* power source detect */
 	bool			profile_available;
 	enum prof_load_status	profile_load_status;
 	bool			battery_missing;
