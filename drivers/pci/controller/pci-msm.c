@@ -6796,6 +6796,11 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev,
 
 	PCIE_DBG(pcie_dev, "RC%d: entry\n", pcie_dev->rc_idx);
 
+	if (pcie_dev->rc_idx == 2 && pcie_dev->bus_client > 0) {
+		pr_info("hack for RC2");
+		return -EBUSY;
+	}
+
 	spin_lock_irqsave(&pcie_dev->irq_lock, irqsave_flags);
 	pcie_dev->suspending = true;
 	spin_unlock_irqrestore(&pcie_dev->irq_lock, irqsave_flags);
